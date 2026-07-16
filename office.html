@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1e429f">
+<title>Сборка — кабинет менеджера</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --blue:#1a56db; --blue-d:#1e429f; --green:#057a55; --green-bg:#def7ec;
+  --red:#c81e1e; --red-bg:#fde8e8; --amber:#c27803; --amber-bg:#fdf6b2;
+  --gray:#6b7280; --bg:#f3f4f6; --card:#ffffff; --line:#e5e7eb; --text:#111827;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px}
+header{position:sticky;top:0;z-index:20;background:var(--blue-d);color:#fff;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+header h1{font-size:18px;font-weight:600}
+header .tabs{display:flex;gap:6px;flex-wrap:wrap}
+header .tabs button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer}
+header .tabs button.active{background:#fff;color:var(--blue-d);font-weight:600}
+.screen{display:none;padding:16px;max-width:900px;margin:0 auto}
+.screen.active{display:block}
+.card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.card h2{font-size:16px;margin-bottom:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;padding:11px 18px;font-size:15px;font-weight:600;cursor:pointer;margin:0 8px 8px 0}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-gray{background:#e5e7eb;color:var(--text)}
+.btn-red{background:var(--red-bg);color:var(--red)}
+.btn-sm{padding:7px 12px;font-size:13px;margin:0}
+.btn:active{opacity:.8}
+.btn:disabled{opacity:.4;cursor:default}
+input[type=text],input[type=password]{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-bottom:10px;background:#fff}
+label{font-size:13px;color:var(--gray);display:block;margin-bottom:4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.row2{grid-template-columns:1fr}}
+#drop{border:2px dashed var(--blue);border-radius:14px;padding:44px 20px;text-align:center;color:var(--blue);font-weight:600;cursor:pointer;background:#eff4ff;transition:background .15s}
+#drop.over{background:#dbe6ff}
+#drop .sub{font-weight:400;color:var(--gray);font-size:13px;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--gray);font-weight:600;font-size:13px;white-space:nowrap}
+td.num,th.num{text-align:right;white-space:nowrap}
+.badge{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--amber-bg);color:var(--amber);font-weight:600;white-space:nowrap}
+.badge.g{background:var(--green-bg);color:var(--green)}
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:100;padding:12px 22px;border-radius:12px;font-weight:600;display:none;max-width:92%;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+#toast.ok{background:var(--green);color:#fff}
+#toast.err{background:var(--red);color:#fff}
+#toast.warn{background:var(--amber);color:#fff}
+.hint{font-size:13px;color:var(--gray);line-height:1.5;margin-top:8px}
+.empty{text-align:center;color:var(--gray);padding:36px 20px}
+.rowline{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.rowline .t{font-weight:600}
+.rowline .s{font-size:13px;color:var(--gray)}
+.mono{font-family:monospace;font-size:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<header>
+  <h1>🗂 Кабинет менеджера</h1>
+  <div class="tabs">
+    <button id="tabSend" class="active" onclick="show('send')">Отправка заказа</button>
+    <button id="tabSrv" onclick="show('srv')">На сервере</button>
+    <button id="tabRes" onclick="show('res')">Результаты</button>
+    <button id="tabCat" onclick="show('cat')">Каталог</button>
+    <button id="tabSet" onclick="show('set')">⚙</button>
+  </div>
+</header>
+
+<div id="toast"></div>
+
+<!-- ОТПРАВКА ЗАКАЗА -->
+<div id="scrSend" class="screen active">
+  <div class="card">
+    <h2>1. Файл заказа из 1С</h2>
+    <div id="drop" onclick="document.getElementById('fSend').click()">
+      Перетащите файл сюда или нажмите
+      <div class="sub">Excel (.xlsx/.xls), CSV или JSON. В 1С: открыть Заказ покупателя → табличная часть → «Ещё → Вывести список» → сохранить как Excel.</div>
+    </div>
+    <input type="file" id="fSend" accept=".xlsx,.xls,.csv,.txt,.json" style="display:none" onchange="handleOrderFile(this.files[0])">
+  </div>
+  <div class="card" id="prevCard" style="display:none">
+    <h2>2. Проверка и отправка</h2>
+    <div class="row2">
+      <div><label>Номер заказа</label><input type="text" id="pNum"></div>
+      <div><label>Клиент</label><input type="text" id="pClient"></div>
+    </div>
+    <div style="max-height:340px;overflow:auto;margin-bottom:10px">
+      <table><thead><tr><th>Номенклатура</th><th>Штрихкод</th><th>Артикул</th><th>Склад</th><th>Группа</th><th class="num">Кол-во</th><th>ЧЗ</th></tr></thead>
+      <tbody id="pRows"></tbody></table>
+    </div>
+    <button class="btn btn-green" id="btnSend" onclick="sendOrder()">☁ Отправить сборщикам</button>
+    <button class="btn btn-gray" onclick="clearPreview()">Отмена</button>
+    <p class="hint">Заказ появится на телефонах в блоке «☁ Заказы на сервере». Повторная отправка заказа с тем же номером заменит его.</p>
+  </div>
+</div>
+
+<!-- ЗАКАЗЫ НА СЕРВЕРЕ -->
+<div id="scrSrv" class="screen">
+  <div class="card">
+    <h2>Заказы, отправленные сборщикам <button class="btn btn-gray btn-sm" onclick="loadSrv(true)">⟳ Обновить</button></h2>
+    <div id="srvList" class="empty">Нажмите «Обновить»</div>
+  </div>
+</div>
+
+<!-- РЕЗУЛЬТАТЫ -->
+<div id="scrRes" class="screen">
+  <div class="card">
+    <h2>Результаты сборки <button class="btn btn-gray btn-sm" onclick="loadRes(true)">⟳ Обновить</button></h2>
+    <div id="resList" class="empty">Нажмите «Обновить»</div>
+  </div>
+  <div class="card" id="resView" style="display:none">
+    <h2 id="rvTitle"></h2>
+    <div style="max-height:400px;overflow:auto;margin-bottom:10px">
+      <table><thead><tr><th>Номенклатура</th><th>Штрихкод</th><th class="num">Заказано</th><th class="num">Собрано</th><th>Код маркировки</th></tr></thead>
+      <tbody id="rvRows"></tbody></table>
+    </div>
+    <button class="btn btn-green" onclick="dlResult('csv')">⬇ CSV для 1С</button>
+    <button class="btn btn-green" onclick="dlResult('xlsx')">⬇ Excel для 1С</button>
+  </div>
+</div>
+
+<!-- КАТАЛОГ -->
+<div id="scrCat" class="screen">
+  <div class="card">
+    <h2>Общий каталог товаров</h2>
+    <p class="hint" id="catInfo" style="margin:0 0 10px">—</p>
+    <button class="btn btn-blue" onclick="document.getElementById('fCat').click()">📄 Загрузить файл в каталог (Excel / CSV)</button>
+    <input type="file" id="fCat" accept=".xlsx,.xls,.csv,.txt" style="display:none" onchange="handleCatFile(this.files[0])">
+    <button class="btn btn-gray" onclick="loadCatInfo(true)">⟳ Обновить</button>
+    <p class="hint">Файл сливается с каталогом на сервере: новые штрихкоды добавляются, совпадающие — обновляются. Каталог используется сборщиками для ручного создания заказов.</p>
+  </div>
+</div>
+
+<!-- НАСТРОЙКИ -->
+<div id="scrSet" class="screen">
+  <div class="card">
+    <h2>Репозиторий GitHub</h2>
+    <label>Репозиторий с данными (логин/имя)</label>
+    <input type="text" id="sRepo" placeholder="ivanov/sborka-data" autocomplete="off">
+    <div class="row2">
+      <div><label>Ветка</label><input type="text" id="sBranch" placeholder="main"></div>
+      <div><label>Токен (fine-grained, Contents: Read and write)</label><input type="password" id="sToken" autocomplete="off"></div>
+    </div>
+    <button class="btn btn-blue" onclick="saveSet()">💾 Сохранить</button>
+    <button class="btn btn-gray" onclick="testSet()">Проверить связь</button>
+    <p class="hint">Указывайте репозиторий с данными (может быть приватным). Токен хранится только в этом браузере.</p>
+  </div>
+</div>
+
+<script>
+/* ============== НАСТРОЙКИ (общий ключ с приложением сборщика) ============== */
+const LS_SET='sborka_settings';
+let S={ghRepo:'',ghBranch:'main',ghToken:''};
+try{ const x=localStorage.getItem(LS_SET); if(x) S=Object.assign(S,JSON.parse(x)); }catch(e){}
+document.getElementById('sRepo').value=S.ghRepo||'';
+document.getElementById('sBranch').value=S.ghBranch||'main';
+document.getElementById('sToken').value=S.ghToken||'';
+function saveSet(){
+  const all=(()=>{try{return JSON.parse(localStorage.getItem(LS_SET))||{}}catch(e){return{}}})();
+  S.ghRepo=document.getElementById('sRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/+$/,'');
+  S.ghBranch=document.getElementById('sBranch').value.trim()||'main';
+  S.ghToken=document.getElementById('sToken').value.trim();
+  localStorage.setItem(LS_SET,JSON.stringify(Object.assign(all,{ghRepo:S.ghRepo,ghBranch:S.ghBranch,ghToken:S.ghToken})));
+  toast('Сохранено','ok');
+}
+async function testSet(){
+  if(!ready(true)) return;
+  try{
+    const r=await fetch(API()+'?ref='+BR(),{headers:HDR()});
+    if(r.status===404){ toast('Связь есть. catalog.json пока не загружен','warn'); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    toast('✓ Связь с репозиторием работает','ok');
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+
+/* ============== UI ============== */
+function show(s){
+  ['send','srv','res','cat','set'].forEach(k=>{
+    document.getElementById('scr'+k[0].toUpperCase()+k.slice(1)).classList.toggle('active',s===k);
+    document.getElementById('tab'+k[0].toUpperCase()+k.slice(1)).classList.toggle('active',s===k);
+  });
+  if(s==='srv') loadSrv(false);
+  if(s==='res') loadRes(false);
+  if(s==='cat') loadCatInfo(false);
+}
+let toastTimer=null;
+function toast(m,t){
+  const el=document.getElementById('toast');
+  el.textContent=m; el.className=t; el.style.display='block';
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.style.display='none',t==='err'?3500:1800);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* ============== GITHUB API ============== */
+function ready(warn){
+  if(S.ghRepo&&S.ghToken) return true;
+  if(warn){ toast('Укажите репозиторий и токен в настройках ⚙','err'); show('set'); }
+  return false;
+}
+function BR(){ return encodeURIComponent(S.ghBranch||'main'); }
+function HDR(extra){ return Object.assign({'Authorization':'Bearer '+S.ghToken,'Accept':'application/vnd.github+json'},extra||{}); }
+function API(path){ return 'https://api.github.com/repos/'+S.ghRepo+'/contents/'+(path===undefined?'catalog.json':path); }
+function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64dec(b){ return decodeURIComponent(escape(atob(String(b).replace(/\s/g,'')))); }
+async function ghMeta(path){ // {status, sha?, text?} либо {status, list} для папки
+  const r=await fetch(API(path)+'?ref='+BR(),{cache:'no-store',headers:HDR()});
+  if(r.status===404) return {status:404};
+  if(!r.ok) throw new Error('HTTP '+r.status+(r.status===401||r.status===403?' — проверьте токен':''));
+  const d=await r.json();
+  if(Array.isArray(d)) return {status:200,list:d};
+  return {status:200,sha:d.sha,text:d.content?b64dec(d.content):null};
+}
+async function ghRaw(path){
+  const r=await fetch(API(path)+'?ref='+BR(),{cache:'no-store',headers:HDR({'Accept':'application/vnd.github.raw+json'})});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.text();
+}
+async function ghFile(path){ // sha + текст; у файлов >1 МБ контент берём raw-запросом
+  const m=await ghMeta(path);
+  if(m.status===200&&!m.text){ try{ m.text=await ghRaw(path); }catch(e){} }
+  return m;
+}
+async function ghPut(path,contentStr,message,sha){
+  const body={message,branch:S.ghBranch||'main',content:b64enc(contentStr)};
+  if(sha) body.sha=sha;
+  const r=await fetch(API(path),{method:'PUT',headers:HDR(),body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('HTTP '+r.status+(r.status===401||r.status===403?' — проверьте токен':''));
+}
+async function ghDel(path,sha,message){
+  const r=await fetch(API(path),{method:'DELETE',headers:HDR(),body:JSON.stringify({message,branch:S.ghBranch||'main',sha})});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+
+/* ============== ПАРСИНГ ФАЙЛОВ (как в приложении сборщика) ============== */
+const COLS={
+  name:['номенклатура','наименование','товар','продукция','name'],
+  barcode:['штрихкод','штрих-код','шк','barcode','ean'],
+  qty:['количество','кол-во','колво','кол.','qty','count'],
+  sku:['артикул','код','sku','art'],
+  order:['заказ','номер заказа','номерзаказа','документ','order'],
+  client:['клиент','контрагент','покупатель','client'],
+  mark:['маркировка','честный знак','км','mark'],
+  wh:['склад','warehouse'],
+  grp:['группа','категория','родитель','group']
+};
+function normHdr(h){ return String(h||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function findCol(headers,keys){
+  for(let i=0;i<headers.length;i++){ const h=normHdr(headers[i]); if(keys.some(k=>h===k||h.includes(k))) return i; }
+  return -1;
+}
+function parseCsv(text){
+  const delim=(text.split(';').length>=text.split(',').length)?';':',';
+  return text.split(/\r?\n/).filter(l=>l.trim()).map(line=>{
+    const out=[]; let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(inQ){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=c; }
+      else{ if(c==='"')inQ=true; else if(c===delim){out.push(cur);cur='';} else cur+=c; }
+    }
+    out.push(cur); return out;
+  });
+}
+function parseRows(rows){
+  if(!rows||rows.length<2) return null;
+  let hIdx=-1,ci={};
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const nm=findCol(rows[i],COLS.name);
+    if(nm>=0){ hIdx=i; ci={name:nm,barcode:findCol(rows[i],COLS.barcode),qty:findCol(rows[i],COLS.qty),sku:findCol(rows[i],COLS.sku),order:findCol(rows[i],COLS.order),client:findCol(rows[i],COLS.client),mark:findCol(rows[i],COLS.mark),wh:findCol(rows[i],COLS.wh),grp:findCol(rows[i],COLS.grp)}; break; }
+  }
+  if(hIdx<0) return null;
+  const lines=[]; let num='',client='';
+  for(let i=hIdx+1;i<rows.length;i++){
+    const r=rows[i];
+    const name=String(r[ci.name]||'').trim();
+    const barcode=ci.barcode>=0?String(r[ci.barcode]||'').replace(/\D/g,''):'';
+    if(!name) continue;
+    const qty=ci.qty>=0?(parseFloat(String(r[ci.qty]).replace(',','.'))||1):1;
+    const markV=ci.mark>=0?normHdr(r[ci.mark]):'';
+    if(ci.order>=0&&r[ci.order]&&!num) num=String(r[ci.order]).trim();
+    if(ci.client>=0&&r[ci.client]&&!client) client=String(r[ci.client]).trim();
+    lines.push({name,barcode,qty,sku:ci.sku>=0?String(r[ci.sku]||'').trim():'',
+      wh:ci.wh>=0?String(r[ci.wh]||'').trim():'',grp:ci.grp>=0?String(r[ci.grp]||'').trim():'',
+      mark:['да','истина','1','true','+'].includes(markV)});
+  }
+  return {num,client,lines};
+}
+function readFileRows(file,cb){
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      if(ext==='json'){ cb(null,JSON.parse(new TextDecoder('utf-8').decode(new Uint8Array(e.target.result)))); return; }
+      let rows;
+      if(ext==='csv'||ext==='txt'){
+        rows=parseCsv(new TextDecoder('utf-8').decode(new Uint8Array(e.target.result)));
+        if(rows.length&&JSON.stringify(rows[0]).includes('�'))
+          rows=parseCsv(new TextDecoder('windows-1251').decode(new Uint8Array(e.target.result)));
+      }else{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      }
+      cb(rows,null);
+    }catch(err){ toast('Ошибка чтения файла: '+err.message,'err'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ============== ОТПРАВКА ЗАКАЗА ============== */
+let pending=null;
+const drop=document.getElementById('drop');
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{ if(e.dataTransfer.files.length) handleOrderFile(e.dataTransfer.files[0]); });
+async function enrichFromServerCatalog(lines){
+  // подставляем штрихкод из каталога на сервере по артикулу или точному наименованию
+  if(!lines.some(l=>!l.barcode)||!ready(false)) return -1;
+  try{
+    const m=await ghFile('catalog.json');
+    if(m.status!==200||!m.text) return -1;
+    let cat=[]; try{ const d=JSON.parse(m.text); if(Array.isArray(d)) cat=d; }catch(e){ return -1; }
+    const bySku=new Map(),byName=new Map();
+    cat.forEach(c=>{
+      if(c.sku) bySku.set(String(c.sku).toLowerCase().trim(),c);
+      byName.set(normHdr(c.name),c);
+    });
+    let miss=0;
+    lines.forEach(l=>{
+      if(l.barcode) return;
+      const c=(l.sku&&bySku.get(String(l.sku).toLowerCase().trim()))||byName.get(normHdr(l.name));
+      if(c){ l.barcode=String(c.barcode); l.mark=l.mark||!!c.mark; if(!l.sku)l.sku=c.sku||''; if(!l.grp)l.grp=c.grp||''; }
+      else miss++;
+    });
+    return miss;
+  }catch(e){ return -1; }
+}
+function handleOrderFile(file){
+  if(!file) return;
+  readFileRows(file,async(rows,json)=>{
+    let p;
+    if(json){
+      const x=Array.isArray(json)?json[0]:json;
+      if(!x||!Array.isArray(x.lines)){ toast('В JSON нет полей number/lines','err'); return; }
+      p={num:String(x.number||''),client:String(x.client||''),lines:x.lines.map(l=>({name:String(l.name||''),barcode:String(l.barcode||'').replace(/\D/g,''),qty:+l.qty||1,sku:String(l.sku||''),wh:String(l.wh||''),grp:String(l.grp||''),mark:!!l.mark})).filter(l=>l.name)};
+    }else{
+      p=parseRows(rows);
+      if(!p){ toast('Не найдена колонка «Номенклатура»','err'); return; }
+    }
+    if(!p.lines.length){ toast('Не найдено ни одной позиции','err'); return; }
+    const miss=await enrichFromServerCatalog(p.lines);
+    pending=p;
+    document.getElementById('pNum').value=p.num||('№'+new Date().toLocaleDateString('ru').replace(/\./g,''));
+    document.getElementById('pClient').value=p.client||'';
+    document.getElementById('pRows').innerHTML=p.lines.map(l=>
+      `<tr><td>${esc(l.name)}</td><td class="mono">${l.barcode?esc(l.barcode):'<span class="badge">нет ШК</span>'}</td><td>${esc(l.sku)}</td><td>${esc(l.wh||'')}</td><td>${esc(l.grp||'')}</td><td class="num">${l.qty}</td><td>${l.mark?'<span class="badge">ЧЗ</span>':''}</td></tr>`).join('');
+    document.getElementById('prevCard').style.display='block';
+    if(miss>0) toast('Прочитано '+p.lines.length+' поз. ⚠ У '+miss+' штрихкод не найден в каталоге — сканирование по ним не сработает','warn');
+    else toast('Файл прочитан: '+p.lines.length+' позиций'+(p.lines.some(l=>l.barcode)?'':' (штрихкоды подставлены из каталога)'),'ok');
+  });
+  document.getElementById('fSend').value='';
+}
+function clearPreview(){ pending=null; document.getElementById('prevCard').style.display='none'; }
+async function sendOrder(){
+  if(!pending||!ready(true)) return;
+  const num=document.getElementById('pNum').value.trim();
+  if(!num){ toast('Укажите номер заказа','err'); return; }
+  const btn=document.getElementById('btnSend'); btn.disabled=true;
+  try{
+    const m=await ghFile('orders.json');
+    let arr=[];
+    if(m.status===200&&m.text){ try{ const d=JSON.parse(m.text); if(Array.isArray(d)) arr=d; }catch(e){} }
+    arr=arr.filter(x=>String(x.number)!==num);
+    arr.push({number:num,client:document.getElementById('pClient').value.trim(),lines:pending.lines});
+    await ghPut('orders.json',JSON.stringify(arr),'Заказ '+num+' (кабинет менеджера)',m.status===200?m.sha:null);
+    toast('✓ Заказ '+num+' отправлен сборщикам ('+pending.lines.length+' поз.)','ok');
+    clearPreview();
+  }catch(e){ toast('Ошибка отправки: '+e.message,'err'); }
+  btn.disabled=false;
+}
+
+/* ============== ЗАКАЗЫ НА СЕРВЕРЕ ============== */
+let srvArr=[],srvSha=null,resFiles=[];
+async function loadSrv(manual){
+  if(!ready(manual)) return;
+  try{
+    const m=await ghFile('orders.json');
+    srvArr=[]; srvSha=null;
+    if(m.status===200){ srvSha=m.sha; try{ const d=JSON.parse(m.text); if(Array.isArray(d)) srvArr=d; }catch(e){} }
+    try{ const r=await ghMeta('results'); resFiles=r.status===200?(r.list||[]):[]; }catch(e){ resFiles=[]; }
+    renderSrv();
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+function renderSrv(){
+  const el=document.getElementById('srvList');
+  if(!srvArr.length){ el.className='empty'; el.textContent='На сервере нет заказов'; return; }
+  el.className='';
+  el.innerHTML=srvArr.map((x,i)=>{
+    const fn='sborka_'+String(x.number).replace(/[^\wа-яА-Я-]+/g,'_')+'.json';
+    const hasRes=resFiles.some(f=>f.name===fn);
+    return `<div class="rowline"><div><div class="t">Заказ ${esc(String(x.number))} ${hasRes?'<span class="badge g">✓ собран</span>':''}</div>
+      <div class="s">${esc(String(x.client||''))}${x.client?' · ':''}${(x.lines||[]).length} поз.</div></div>
+      <button class="btn btn-red btn-sm" onclick="delSrv(${i})">🗑 Убрать</button></div>`;
+  }).join('');
+}
+async function delSrv(i){
+  if(!confirm('Убрать заказ '+srvArr[i].number+' с сервера? У сборщиков, уже загрузивших его, он останется.')) return;
+  try{
+    srvArr.splice(i,1);
+    await ghPut('orders.json',JSON.stringify(srvArr),'Удаление заказа (кабинет менеджера)',srvSha);
+    toast('Убран','ok'); loadSrv(false);
+  }catch(e){ toast('Ошибка: '+e.message,'err'); loadSrv(false); }
+}
+
+/* ============== РЕЗУЛЬТАТЫ ============== */
+let curResult=null;
+async function loadRes(manual){
+  if(!ready(manual)) return;
+  try{
+    const m=await ghMeta('results');
+    resFiles=m.status===200?(m.list||[]).filter(f=>f.name.endsWith('.json')):[];
+    const el=document.getElementById('resList');
+    if(!resFiles.length){ el.className='empty'; el.textContent='Результатов пока нет — сборщик отправляет их кнопкой «☁ Отправить результат на GitHub»'; return; }
+    el.className='';
+    el.innerHTML=resFiles.map((f,i)=>
+      `<div class="rowline"><div class="t">${esc(f.name.replace(/^sborka_|\.json$/g,''))}</div>
+       <div><button class="btn btn-blue btn-sm" onclick="openRes(${i})">Открыть</button>
+       <button class="btn btn-red btn-sm" onclick="delRes(${i})">🗑</button></div></div>`).join('');
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+async function openRes(i){
+  try{
+    curResult=JSON.parse(await ghRaw('results/'+resFiles[i].name));
+    document.getElementById('rvTitle').textContent='Заказ '+curResult.number+(curResult.client?' — '+curResult.client:'');
+    document.getElementById('rvRows').innerHTML=curResult.lines.map(l=>{
+      const codes=(l.codes&&l.codes.length)?l.codes:[''];
+      return codes.map((c,j)=>`<tr>${j===0?`<td rowspan="${codes.length}">${esc(l.name)}</td><td rowspan="${codes.length}" class="mono">${esc(l.barcode)}</td><td rowspan="${codes.length}" class="num">${l.qty}</td><td rowspan="${codes.length}" class="num">${l.qtyCollected}</td>`:''}<td class="mono">${esc(c)}</td></tr>`).join('');
+    }).join('');
+    document.getElementById('resView').style.display='block';
+    document.getElementById('resView').scrollIntoView({behavior:'smooth'});
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+async function delRes(i){
+  if(!confirm('Удалить результат '+resFiles[i].name+' с сервера?')) return;
+  try{
+    await ghDel('results/'+resFiles[i].name,resFiles[i].sha,'Удаление результата (кабинет менеджера)');
+    toast('Удалён','ok'); document.getElementById('resView').style.display='none'; loadRes(false);
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+function resultRows(){
+  const rows=[['Заказ','Штрихкод','Артикул','Номенклатура','Количество','Собрано','КодМаркировки']];
+  curResult.lines.forEach(l=>{
+    if(l.codes&&l.codes.length) l.codes.forEach(c=>rows.push([curResult.number,l.barcode,l.sku,l.name,l.qty,l.qtyCollected,c]));
+    else rows.push([curResult.number,l.barcode,l.sku,l.name,l.qty,l.qtyCollected,'']);
+  });
+  return rows;
+}
+function dlResult(fmt){
+  if(!curResult) return;
+  const base='sborka_'+String(curResult.number).replace(/[^\wа-яА-Я-]+/g,'_');
+  if(fmt==='csv'){
+    const csv=resultRows().map(r=>r.map(v=>{
+      v=String(v); return (v.includes(';')||v.includes('"')||v.includes('\n'))?'"'+v.replace(/"/g,'""')+'"':v;
+    }).join(';')).join('\r\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
+    a.download=base+'.csv'; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+  }else{
+    const ws=XLSX.utils.aoa_to_sheet(resultRows());
+    ws['!cols']=[{wch:12},{wch:15},{wch:10},{wch:40},{wch:8},{wch:8},{wch:45}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Сборка');
+    XLSX.writeFile(wb,base+'.xlsx');
+  }
+}
+
+/* ============== КАТАЛОГ ============== */
+function catKey(b){ return String(b||'').replace(/^0+/,''); }
+async function loadCatInfo(manual){
+  if(!ready(manual)) return;
+  try{
+    const m=await ghFile('catalog.json');
+    if(m.status===404){ document.getElementById('catInfo').textContent='catalog.json в репозитории отсутствует — загрузите файл, он будет создан.'; return; }
+    let n=0; try{ const d=JSON.parse(m.text); if(Array.isArray(d)) n=d.length; }catch(e){}
+    document.getElementById('catInfo').textContent='В каталоге на сервере: '+n+' позиций.';
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+function handleCatFile(file){
+  if(!file||!ready(true)) return;
+  readFileRows(file,async(rows)=>{
+    const p=parseRows(rows);
+    if(!p){ toast('Не найдены колонки «Номенклатура» и «Штрихкод»','err'); return; }
+    try{
+      const m=await ghFile('catalog.json');
+      let cat=[]; if(m.status===200&&m.text){ try{ const d=JSON.parse(m.text); if(Array.isArray(d)) cat=d; }catch(e){} }
+      const mk=x=>{ const b=catKey(x.barcode); return b?'b:'+b:'n:'+normHdr(x.name); };
+      const idx=new Map(cat.map(x=>[mk(x),x]));
+      let added=0;
+      p.lines.forEach(l=>{
+        if(!l.name&&!l.barcode) return;
+        const k=mk(l);
+        let ex=idx.get(k);
+        if(!ex&&l.barcode){ // был без ШК — дополняем штрихкодом
+          const exN=idx.get('n:'+normHdr(l.name));
+          if(exN&&!catKey(exN.barcode)){ ex=exN; idx.delete('n:'+normHdr(l.name)); ex.barcode=l.barcode; idx.set(k,ex); }
+        }
+        if(ex){ ex.name=l.name||ex.name; ex.sku=l.sku||ex.sku; ex.mark=ex.mark||!!l.mark; if(l.grp&&!ex.grp)ex.grp=l.grp; }
+        else{ const o={name:l.name,barcode:l.barcode||'',sku:l.sku||'',mark:!!l.mark,grp:l.grp||''}; cat.push(o); idx.set(k,o); added++; }
+      });
+      await ghPut('catalog.json',JSON.stringify(cat),'Каталог: +'+added+' (кабинет менеджера)',m.status===200?m.sha:null);
+      document.getElementById('catInfo').textContent='В каталоге на сервере: '+cat.length+' позиций.';
+      toast('✓ Каталог обновлён: +'+added+' новых, всего '+cat.length,'ok');
+    }catch(e){ toast('Ошибка: '+e.message,'err'); }
+  });
+  document.getElementById('fCat').value='';
+}
+</script>
+</body>
+</html>
