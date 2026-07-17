@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#4a1d96">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Сборка — администрирование</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{
+  --violet:#6d28d9; --violet-d:#4a1d96; --green:#057a55; --green-bg:#def7ec;
+  --red:#c81e1e; --red-bg:#fde8e8; --amber:#c27803; --amber-bg:#fdf6b2;
+  --gray:#6b7280; --bg:#f3f4f6; --card:#ffffff; --line:#e5e7eb; --text:#111827;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px;padding-bottom:24px}
+header{position:sticky;top:0;z-index:20;background:var(--violet-d);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+header h1{font-size:17px;font-weight:600}
+header button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:7px 13px;border-radius:8px;font-size:14px;cursor:pointer}
+.screen{display:none;padding:12px;max-width:640px;margin:0 auto}
+.screen.active{display:block}
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.card h2{font-size:15px;margin-bottom:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;padding:12px 16px;font-size:15px;font-weight:600;cursor:pointer;width:100%;margin-bottom:8px}
+.btn-v{background:var(--violet);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-gray{background:#e5e7eb;color:var(--text)}
+.btn-red{background:var(--red-bg);color:var(--red)}
+.btn:active{opacity:.8}
+input[type=text],input[type=password]{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-bottom:8px;background:#fff}
+label{font-size:13px;color:var(--gray);display:block;margin-bottom:4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{font-size:12.5px;color:var(--gray);line-height:1.45;margin-top:6px}
+.empty{text-align:center;color:var(--gray);padding:30px 16px;font-size:14px}
+#toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:100;padding:12px 20px;border-radius:12px;font-weight:600;font-size:15px;display:none;max-width:92%;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+#toast.ok{background:var(--green);color:#fff}
+#toast.err{background:var(--red);color:#fff}
+#toast.warn{background:var(--amber);color:#fff}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:flex-end;justify-content:center}
+.modal.open{display:flex}
+.modal .sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;padding:16px}
+#reader{width:100%;border-radius:12px;overflow:hidden}
+.secbadge{display:inline-block;background:var(--violet);color:#fff;font-size:26px;font-weight:800;border-radius:12px;padding:8px 22px;letter-spacing:1px}
+.itm{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.itm .info{flex:1;min-width:0}
+.itm .n{font-size:14px;font-weight:600}
+.itm .b{font-size:12px;color:var(--gray)}
+.itm .del{border:none;background:var(--red-bg);color:var(--red);border-radius:8px;padding:8px 10px;cursor:pointer;flex-shrink:0}
+.itm .add{border:none;background:var(--violet);color:#fff;border-radius:10px;width:40px;height:40px;font-size:20px;cursor:pointer;flex-shrink:0}
+.was{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--amber-bg);color:var(--amber);font-weight:600}
+#scanbar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;margin:0 -12px -12px;border-radius:0 0 12px 12px}
+#scanbar input{flex:1;margin:0;font-size:16px}
+#scanbar button{width:auto;margin:0;padding:12px 16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛠 Администрирование</h1>
+  <button id="btnBack" style="display:none" onclick="goHome()">← Функции</button>
+</header>
+
+<div id="toast"></div>
+
+<!-- ГЛАВНАЯ: СПИСОК ФУНКЦИЙ -->
+<div id="scrHome" class="screen active">
+  <div class="card">
+    <h2>Функции</h2>
+    <button class="btn btn-v" onclick="startMarkup()">🗄 Разметка склада</button>
+    <p class="hint">Сканируйте QR секции (или введите её номер), затем сканируйте товары, которые в ней лежат. Секция сохранится в каталоге и будет видна сборщикам рядом со штрихкодом позиции.</p>
+  </div>
+  <div class="card">
+    <h2>Настройки</h2>
+    <label>Репозиторий с данными (логин/имя)</label>
+    <input type="text" id="sRepo" autocomplete="off" placeholder="Jokusik/sborkadata">
+    <div class="row2">
+      <div><label>Ветка</label><input type="text" id="sBranch" placeholder="main"></div>
+      <div><label>Токен</label><input type="password" id="sToken" autocomplete="off"></div>
+    </div>
+    <button class="btn btn-gray" onclick="saveSet()">💾 Сохранить</button>
+    <p class="hint" id="catInfo">Настройки общие с приложением сборщика — если оно настроено на этом устройстве, всё уже заполнено.</p>
+  </div>
+</div>
+
+<!-- РАЗМЕТКА: ВЫБОР СЕКЦИИ -->
+<div id="scrSection" class="screen">
+  <div class="card">
+    <h2>Секция склада</h2>
+    <button class="btn btn-v" onclick="openCamera('section')">📷 Сканировать QR секции</button>
+    <label>Или введите номер вручную</label>
+    <input type="text" id="secInput" placeholder="Например: D5" autocomplete="off" style="text-transform:uppercase">
+    <button class="btn btn-green" onclick="beginFill()">Начать наполнение →</button>
+  </div>
+</div>
+
+<!-- РАЗМЕТКА: НАПОЛНЕНИЕ СЕКЦИИ -->
+<div id="scrFill" class="screen">
+  <div class="card" style="text-align:center">
+    <span class="secbadge" id="secLabel">—</span>
+    <p class="hint" style="margin-top:8px">Сканируйте товары этой секции (штрихкод или код ЧЗ) — или найдите вручную ниже (для товаров без штрихкода).</p>
+  </div>
+  <div class="card">
+    <h2>Внесено в секцию: <span id="fillCnt">0</span></h2>
+    <div id="fillList" class="empty">Пока пусто — сканируйте первый товар</div>
+    <div id="scanbar">
+      <input type="text" id="scanInput" placeholder="Сканируйте код…" autocomplete="off">
+      <button class="btn btn-v" onclick="openCamera('fill')">📷</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Найти вручную (для товаров без штрихкода)</h2>
+    <input type="text" id="findInput" placeholder="🔍 Название / артикул" oninput="renderFind()">
+    <div id="findList"></div>
+  </div>
+  <div class="card">
+    <button class="btn btn-green" onclick="saveSection()">💾 Сохранить секцию в каталог</button>
+    <button class="btn btn-gray" style="margin-bottom:0" onclick="switchSection()">↩ Сменить секцию</button>
+  </div>
+</div>
+
+<!-- КАМЕРА -->
+<div class="modal" id="camModal">
+  <div class="sheet">
+    <h3 id="camTitle" style="font-size:16px;margin-bottom:10px">Наведите камеру</h3>
+    <div id="reader"></div>
+    <button class="btn btn-gray" style="margin-top:10px" onclick="closeCamera()">Закрыть</button>
+  </div>
+</div>
+
+<script>
+/* ============== НАСТРОЙКИ (общий ключ с приложением) ============== */
+const LS_SET='sborka_settings';
+let S={ghRepo:'',ghBranch:'main',ghToken:''};
+try{ const x=localStorage.getItem(LS_SET); if(x) S=Object.assign(S,JSON.parse(x)); }catch(e){}
+document.getElementById('sRepo').value=S.ghRepo||'';
+document.getElementById('sBranch').value=S.ghBranch||'main';
+document.getElementById('sToken').value=S.ghToken||'';
+function saveSet(){
+  const all=(()=>{try{return JSON.parse(localStorage.getItem(LS_SET))||{}}catch(e){return{}}})();
+  S.ghRepo=document.getElementById('sRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/+$/,'');
+  S.ghBranch=document.getElementById('sBranch').value.trim()||'main';
+  S.ghToken=document.getElementById('sToken').value.trim();
+  localStorage.setItem(LS_SET,JSON.stringify(Object.assign(all,{ghRepo:S.ghRepo,ghBranch:S.ghBranch,ghToken:S.ghToken})));
+  toast('Сохранено','ok');
+}
+function ready(warn){
+  if(S.ghRepo&&S.ghToken) return true;
+  if(warn) toast('Укажите репозиторий и токен в настройках','err');
+  return false;
+}
+
+/* ============== UI ============== */
+let toastTimer=null;
+function toast(m,t){
+  const el=document.getElementById('toast');
+  el.textContent=m; el.className=t; el.style.display='block';
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.style.display='none',t==='err'?3000:1700);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function beep(ok){
+  if(navigator.vibrate) navigator.vibrate(ok?60:[120,60,120]);
+  try{
+    const ctx=beep.ctx=beep.ctx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.frequency.value=ok?1568:220;o.type='square';g.gain.value=.12;
+    o.start();o.stop(ctx.currentTime+(ok?.12:.4));
+  }catch(e){}
+}
+function show(s){
+  ['Home','Section','Fill'].forEach(k=>document.getElementById('scr'+k).classList.toggle('active',s===k));
+  document.getElementById('btnBack').style.display=s==='Home'?'none':'inline-block';
+}
+function goHome(){
+  if(pending.length&&!confirm('Есть несохранённые позиции ('+pending.length+'). Выйти без сохранения?')) return;
+  pending=[]; show('Home');
+}
+
+/* ============== GITHUB API ============== */
+function BR(){ return encodeURIComponent(S.ghBranch||'main'); }
+function HDR(extra){ return Object.assign({'Authorization':'Bearer '+S.ghToken,'Accept':'application/vnd.github+json'},extra||{}); }
+function API(path){ return 'https://api.github.com/repos/'+S.ghRepo+'/contents/'+path; }
+function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
+async function ghRaw(path){
+  const r=await fetch(API(path)+'?ref='+BR(),{cache:'no-store',headers:HDR({'Accept':'application/vnd.github.raw+json'})});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.text();
+}
+async function ghPut(path,contentStr,message){
+  for(let a=0;a<3;a++){
+    let sha=null;
+    const g=await fetch(API(path)+'?ref='+BR(),{cache:'no-store',headers:HDR()});
+    if(g.ok) sha=(await g.json()).sha;
+    else if(g.status!==404) throw new Error('HTTP '+g.status);
+    const body={message,branch:S.ghBranch||'main',content:b64enc(contentStr)};
+    if(sha) body.sha=sha;
+    const r=await fetch(API(path),{method:'PUT',headers:HDR(),body:JSON.stringify(body)});
+    if(r.ok) return;
+    if(r.status!==409&&r.status!==422) throw new Error('HTTP '+r.status+(r.status===401||r.status===403?' — проверьте токен':''));
+  }
+  throw new Error('Файл меняется одновременно с другого устройства — повторите');
+}
+
+/* ============== КАТАЛОГ ============== */
+let catalog=null;
+function bcKey(b){ return String(b||'').replace(/^0+/,''); }
+function nrm(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+async function loadCatalog(){
+  if(!ready(true)) return false;
+  try{
+    const d=JSON.parse(await ghRaw('catalog.json'));
+    if(!Array.isArray(d)) throw new Error('catalog.json повреждён');
+    catalog=d;
+    document.getElementById('catInfo').textContent='Каталог загружен: '+catalog.length+' позиций.';
+    return true;
+  }catch(e){ toast('Каталог: '+e.message,'err'); return false; }
+}
+
+/* ============== ПАРСИНГ КОДОВ ============== */
+const GS='\u001d';
+function parseCode(raw){
+  let s=String(raw).trim();
+  if(s.startsWith(']d2')||s.startsWith(']Q3')||s.startsWith(']C1')) s=s.slice(3);
+  s=s.replace(/^[\u001d\u00e8]+/,'');
+  if(/^01\d{14}21/.test(s)) return {type:'km',barcode:s.slice(2,16)}; // код ЧЗ → GTIN + признак маркировки
+  const digits=s.replace(/\D/g,'');
+  if(digits.length>=8&&digits.length<=14&&digits===s) return {type:'ean',barcode:digits};
+  return {type:'text',raw:s};
+}
+
+/* ============== РАЗМЕТКА СКЛАДА ============== */
+let section='',pending=[]; // pending: {name,barcode,sku,prev}
+async function startMarkup(){
+  if(!ready(true)) return;
+  if(!catalog){ toast('Загружаю каталог…','warn'); if(!await loadCatalog()) return; }
+  document.getElementById('secInput').value='';
+  show('Section');
+}
+function setSection(v){
+  v=String(v||'').trim().toUpperCase().slice(0,16);
+  if(!v){ toast('Секция пустая','err'); return; }
+  section=v; pending=[];
+  document.getElementById('secLabel').textContent=section;
+  document.getElementById('findInput').value='';
+  renderFill(); renderFind();
+  show('Fill');
+  toast('Секция '+section+' — сканируйте товары','ok');
+}
+function beginFill(){ setSection(document.getElementById('secInput').value); }
+function switchSection(){
+  if(pending.length&&!confirm('Есть несохранённые позиции ('+pending.length+'). Сменить секцию без сохранения?')) return;
+  pending=[]; show('Section');
+}
+function addItem(c,isKm){
+  const ex=pending.find(p=>p.ref===c);
+  if(ex){
+    if(isKm&&!ex.setMark){ ex.setMark=true; renderFill(); toast('✓ '+c.name+' — отмечен как ЧЗ','ok'); beep(true); return; }
+    toast('Уже в списке','warn'); return;
+  }
+  pending.push({ref:c,name:c.name,barcode:c.barcode||'',sku:c.sku||'',prev:c.loc||'',setMark:!!isKm});
+  renderFill(); beep(true);
+  toast('✓ '+c.name+(isKm&&!c.mark?' — будет помечен как ЧЗ':''),'ok');
+}
+function delItem(i){ pending.splice(i,1); renderFill(); }
+function renderFill(){
+  document.getElementById('fillCnt').textContent=pending.length;
+  const el=document.getElementById('fillList');
+  if(!pending.length){ el.className='empty'; el.textContent='Пока пусто — сканируйте первый товар'; return; }
+  el.className='';
+  el.innerHTML=pending.map((p,i)=>
+    `<div class="itm"><div class="info"><div class="n">${esc(p.name)}${(p.setMark||p.ref.mark)?' <span class="was" style="background:var(--green-bg);color:var(--green)">ЧЗ</span>':''}</div>
+     <div class="b">${p.barcode?'ШК: '+esc(p.barcode):'— без ШК —'}${p.sku?' · '+esc(p.sku):''}
+     ${p.prev&&p.prev!==section?' <span class="was">была: '+esc(p.prev)+'</span>':''}</div></div>
+     <button class="del" onclick="delItem(${i})">✕</button></div>`).join('');
+}
+function renderFind(){
+  const q=nrm(document.getElementById('findInput').value);
+  const el=document.getElementById('findList');
+  if(!q||q.length<2||!catalog){ el.innerHTML=''; return; }
+  const list=catalog.filter(c=>nrm(c.name).includes(q)||String(c.barcode).includes(q)||nrm(c.sku).includes(q)).slice(0,30);
+  el.innerHTML=list.map((c,i)=>
+    `<div class="itm"><div class="info"><div class="n">${esc(c.name)}</div>
+     <div class="b">${c.barcode?'ШК: '+esc(c.barcode):'— без ШК —'}${c.sku?' · '+esc(c.sku):''}${c.loc?' · 🗄 '+esc(c.loc):''}</div></div>
+     <button class="add" onclick="findAdd(${catalog.indexOf(c)})">＋</button></div>`).join('')||'<div class="empty">Не найдено</div>';
+}
+function findAdd(idx){ const c=catalog[idx]; if(c) addItem(c); }
+function processScan(raw){
+  if(!raw||!raw.trim()) return;
+  const p=parseCode(raw);
+  if(camMode==='section'||document.getElementById('scrSection').classList.contains('active')){
+    // на экране выбора секции любой скан — это её номер
+    closeCamera();
+    setSection(p.type==='text'?p.raw:p.barcode);
+    return;
+  }
+  if(p.type!=='ean'&&p.type!=='km'){ toast('Код не распознан','err'); beep(false); return; }
+  const c=catalog&&catalog.find(x=>x.barcode&&bcKey(x.barcode)===bcKey(p.barcode));
+  if(!c){ toast('Штрихкод '+p.barcode+' не найден в каталоге','err'); beep(false); return; }
+  addItem(c,p.type==='km'); // скан кода ЧЗ = секция + пометка «Честный знак»
+}
+async function saveSection(){
+  if(!pending.length){ toast('Список пуст — нечего сохранять','warn'); return; }
+  if(!ready(true)) return;
+  toast('Сохраняю…','warn');
+  try{
+    // читаем свежий каталог, проставляем секцию, пишем обратно
+    const arr=JSON.parse(await ghRaw('catalog.json'));
+    if(!Array.isArray(arr)) throw new Error('catalog.json повреждён');
+    const byBc=new Map(),byName=new Map();
+    arr.forEach(c=>{ if(c.barcode) byBc.set(bcKey(c.barcode),c); byName.set(nrm(c.name),c); });
+    let n=0,marked=0;
+    pending.forEach(p=>{
+      const c=(p.barcode&&byBc.get(bcKey(p.barcode)))||byName.get(nrm(p.name));
+      if(!c) return;
+      c.loc=section; n++;
+      if(p.setMark&&!c.mark){ c.mark=true; marked++; } // сканировали код ЧЗ → товар маркированный
+    });
+    await ghPut('catalog.json',JSON.stringify(arr),'Разметка склада: секция '+section+' ('+pending.length+' поз.'+(marked?', ЧЗ +'+marked:'')+')');
+    catalog=arr;
+    toast('✓ Секция '+section+' сохранена: '+n+' поз.'+(marked?', помечено ЧЗ: '+marked:''),'ok'); beep(true);
+    pending=[]; renderFill();
+    show('Section'); // следующая секция
+  }catch(e){ toast('Ошибка сохранения: '+e.message,'err'); beep(false); }
+}
+
+/* ============== ВВОД: ПОЛЕ + HID-СКАНЕР ============== */
+const scanInput=document.getElementById('scanInput');
+scanInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ e.preventDefault(); processScan(scanInput.value); scanInput.value=''; }
+});
+let hidBuf='',hidTime=0;
+document.addEventListener('keydown',e=>{
+  const tag=(document.activeElement&&document.activeElement.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA') return;
+  const now=Date.now();
+  if(now-hidTime>200) hidBuf='';
+  hidTime=now;
+  if(e.key==='Enter'){ if(hidBuf.length>=2){ processScan(hidBuf); } hidBuf=''; return; }
+  if(e.ctrlKey&&(e.key===']'||e.code==='BracketRight')){ hidBuf+=GS; e.preventDefault(); return; }
+  if(e.key.length===1) hidBuf+=e.key;
+});
+
+/* ============== КАМЕРА ============== */
+let html5Qr=null,camMode='';
+function openCamera(mode){
+  camMode=mode||'fill';
+  document.getElementById('camTitle').textContent=camMode==='section'?'Наведите камеру на QR секции':'Сканируйте товары секции '+section;
+  document.getElementById('camModal').classList.add('open');
+  const fmts=camMode==='section'
+    ?[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.DATA_MATRIX]
+    :[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.QR_CODE];
+  html5Qr=new Html5Qrcode('reader',{formatsToSupport:fmts});
+  let lastText='',lastTs=0;
+  html5Qr.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:260}},
+    (text)=>{
+      const now=Date.now();
+      if(text===lastText&&now-lastTs<2500) return;
+      lastText=text; lastTs=now;
+      processScan(text);
+    },()=>{}
+  ).catch(err=>{ toast('Камера недоступна: '+err+'. Нужен HTTPS.','err'); closeCamera(); });
+}
+function closeCamera(){
+  document.getElementById('camModal').classList.remove('open');
+  camMode='';
+  if(html5Qr){ html5Qr.stop().then(()=>html5Qr.clear()).catch(()=>{}); html5Qr=null; }
+}
+</script>
+</body>
+</html>
