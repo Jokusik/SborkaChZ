@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#4a1d96">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Сборка — администрирование</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --violet:#6d28d9; --violet-d:#4a1d96; --green:#057a55; --green-bg:#def7ec;
+  --red:#c81e1e; --red-bg:#fde8e8; --amber:#c27803; --amber-bg:#fdf6b2;
+  --gray:#6b7280; --bg:#f3f4f6; --card:#ffffff; --line:#e5e7eb; --text:#111827;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px;padding-bottom:24px}
+header{position:sticky;top:0;z-index:20;background:var(--violet-d);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+header h1{font-size:17px;font-weight:600}
+header button{background:rgba(255,255,255,.15);border:none;color:#fff;padding:7px 13px;border-radius:8px;font-size:14px;cursor:pointer}
+.screen{display:none;padding:12px;max-width:640px;margin:0 auto}
+.screen.active{display:block}
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.card h2{font-size:15px;margin-bottom:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;padding:12px 16px;font-size:15px;font-weight:600;cursor:pointer;width:100%;margin-bottom:8px}
+.btn-v{background:var(--violet);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-gray{background:#e5e7eb;color:var(--text)}
+.btn-red{background:var(--red-bg);color:var(--red)}
+.btn:active{opacity:.8}
+input[type=text],input[type=password]{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;margin-bottom:8px;background:#fff}
+label{font-size:13px;color:var(--gray);display:block;margin-bottom:4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{font-size:12.5px;color:var(--gray);line-height:1.45;margin-top:6px}
+.empty{text-align:center;color:var(--gray);padding:30px 16px;font-size:14px}
+#toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:100;padding:12px 20px;border-radius:12px;font-weight:600;font-size:15px;display:none;max-width:92%;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+#toast.ok{background:var(--green);color:#fff}
+#toast.err{background:var(--red);color:#fff}
+#toast.warn{background:var(--amber);color:#fff}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:flex-end;justify-content:center}
+.modal.open{display:flex}
+.modal .sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;padding:16px}
+#reader{width:100%;border-radius:12px;overflow:hidden}
+.secbadge{display:inline-block;background:var(--violet);color:#fff;font-size:26px;font-weight:800;border-radius:12px;padding:8px 22px;letter-spacing:1px}
+.itm{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.itm .info{flex:1;min-width:0}
+.itm .n{font-size:14px;font-weight:600}
+.itm .b{font-size:12px;color:var(--gray)}
+.itm .del{border:none;background:var(--red-bg);color:var(--red);border-radius:8px;padding:8px 10px;cursor:pointer;flex-shrink:0}
+.itm .add{border:none;background:var(--violet);color:#fff;border-radius:10px;width:40px;height:40px;font-size:20px;cursor:pointer;flex-shrink:0}
+.was{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--amber-bg);color:var(--amber);font-weight:600}
+#scanbar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px;margin:0 -12px -12px;border-radius:0 0 12px 12px}
+#scanbar input{flex:1;margin:0;font-size:16px}
+#scanbar button{width:auto;margin:0;padding:12px 16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛠 Администрирование</h1>
+  <button id="btnBack" style="display:none" onclick="goHome()">← Функции</button>
+</header>
+
+<div id="toast"></div>
+
+<!-- ГЛАВНАЯ: СПИСОК ФУНКЦИЙ -->
+<div id="scrHome" class="screen active">
+  <div class="card">
+    <h2>Функции</h2>
+    <button class="btn btn-v" onclick="startMarkup()">🗄 Разметка склада</button>
+    <p class="hint">Сканируйте QR секции (или введите её номер), затем сканируйте товары, которые в ней лежат. Секция сохранится в каталоге и будет видна сборщикам рядом со штрихкодом позиции.</p>
+    <button class="btn btn-v" style="margin-top:8px" onclick="openLog()">📜 Журнал изменений карточек</button>
+    <p class="hint">Кто, когда и что менял в карточках товаров: старое и новое значение (штрихкод, артикул, секция, ЧЗ и т.д.).</p>
+    <button class="btn btn-v" style="margin-top:8px" onclick="startUpdate()">🔄 Обновление каталога</button>
+    <p class="hint">Загрузите свежую выгрузку — увидите, какие позиции добавятся и какие пустые поля дозаполнятся, поправите неточности и только потом примените. Существующие заполненные данные не изменяются.</p>
+  </div>
+  <div class="card">
+    <h2>Настройки</h2>
+    <label>Репозиторий с данными (логин/имя)</label>
+    <input type="text" id="sRepo" autocomplete="off" placeholder="Jokusik/sborkadata">
+    <div class="row2">
+      <div><label>Ветка</label><input type="text" id="sBranch" placeholder="main"></div>
+      <div><label>Токен</label><input type="password" id="sToken" autocomplete="off"></div>
+    </div>
+    <button class="btn btn-gray" onclick="saveSet()">💾 Сохранить</button>
+    <p class="hint" id="catInfo">Настройки общие с приложением сборщика — если оно настроено на этом устройстве, всё уже заполнено.</p>
+  </div>
+</div>
+
+<!-- РАЗМЕТКА: ВЫБОР СЕКЦИИ -->
+<div id="scrSection" class="screen">
+  <div class="card">
+    <h2>Секция склада</h2>
+    <label>Склад</label>
+    <div class="row2" style="margin-bottom:8px">
+      <button class="btn" id="whMain" onclick="setMarkWh('Основной')">📦 Основной</button>
+      <button class="btn" id="whTea" onclick="setMarkWh('ЧАЙ')">📦 ЧАЙ</button>
+    </div>
+    <button class="btn btn-v" onclick="openCamera('section')">📷 Сканировать QR секции</button>
+    <label>Или введите номер вручную</label>
+    <input type="text" id="secInput" placeholder="Например: D5" autocomplete="off" style="text-transform:uppercase">
+    <button class="btn btn-green" onclick="beginFill()">Начать наполнение →</button>
+  </div>
+</div>
+
+<!-- РАЗМЕТКА: НАПОЛНЕНИЕ СЕКЦИИ -->
+<div id="scrFill" class="screen">
+  <div class="card" style="text-align:center">
+    <span class="secbadge" id="secLabel">—</span>
+    <p class="hint" style="margin-top:8px">Сканируйте товары этой секции (штрихкод или код ЧЗ) — или найдите вручную ниже (для товаров без штрихкода).</p>
+  </div>
+  <div class="card">
+    <h2>Внесено в секцию: <span id="fillCnt">0</span></h2>
+    <div id="fillList" class="empty">Пока пусто — сканируйте первый товар</div>
+    <div id="scanbar">
+      <input type="text" id="scanInput" placeholder="Сканируйте код…" autocomplete="off">
+      <button class="btn btn-v" onclick="openCamera('fill')">📷</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Найти вручную (для товаров без штрихкода)</h2>
+    <input type="text" id="findInput" placeholder="🔍 Название / артикул" oninput="renderFind()">
+    <div id="findList"></div>
+  </div>
+  <div class="card">
+    <button class="btn btn-green" onclick="saveSection()">💾 Сохранить секцию в каталог</button>
+    <button class="btn btn-gray" style="margin-bottom:0" onclick="switchSection()">↩ Сменить секцию</button>
+  </div>
+</div>
+
+<!-- ОБНОВЛЕНИЕ КАТАЛОГА -->
+<div id="scrUpd" class="screen">
+  <div class="card">
+    <h2>🔄 Обновление каталога</h2>
+    <button class="btn btn-v" onclick="document.getElementById('updFile').click()">📄 Выбрать файл выгрузки (Excel / CSV)</button>
+    <input type="file" id="updFile" accept=".xlsx,.xls,.csv,.txt" style="display:none" onchange="handleUpdFile(this.files[0]);this.value=''">
+    <p class="hint" id="updInfo">Файл сверится с каталогом на сервере. Заполненные поля существующих позиций не трогаются — только новые позиции и пустые поля.</p>
+  </div>
+  <div class="card" id="updNewCard" style="display:none">
+    <h2>➕ Будут добавлены: <span id="updNewCnt">0</span></h2>
+    <div id="updNewList"></div>
+  </div>
+  <div class="card" id="updFillCard" style="display:none">
+    <h2>✏ Дозаполнятся пустые поля: <span id="updFillCnt">0</span></h2>
+    <div id="updFillList"></div>
+  </div>
+  <div class="card" id="updApplyCard" style="display:none">
+    <button class="btn btn-green" onclick="applyUpdate()" id="updApplyBtn">✅ Применить</button>
+    <p class="hint">Исключённые (✕) позиции применены не будут. Все изменения попадут в журнал карточек.</p>
+  </div>
+</div>
+
+<!-- ПРАВКА ПОЗИЦИИ ПРИ ОБНОВЛЕНИИ -->
+<div class="modal" id="ueModal" onclick="if(event.target===this)closeUe()">
+  <div class="sheet">
+    <h3>Правка новой позиции</h3>
+    <label>Наименование</label>
+    <input type="text" id="ueName">
+    <div class="row2">
+      <div><label>Штрихкод</label><input type="text" id="ueBarcode" inputmode="numeric"></div>
+      <div><label>Артикул</label><input type="text" id="ueSku"></div>
+    </div>
+    <label>Группа</label>
+    <input type="text" id="ueGrp">
+    <label style="margin-bottom:8px"><input type="checkbox" id="ueMark"> Маркировка «Честный знак»</label>
+    <button class="btn btn-green" onclick="ueSave()">Сохранить</button>
+    <button class="btn btn-gray" style="margin-bottom:0" onclick="closeUe()">Отмена</button>
+  </div>
+</div>
+
+<!-- ЖУРНАЛ ИЗМЕНЕНИЙ КАРТОЧЕК -->
+<div id="scrLog" class="screen">
+  <div class="card">
+    <h2>📜 Журнал изменений карточек <button class="btn btn-gray" style="width:auto;margin:0;padding:8px 12px;font-size:13px" onclick="loadLog()">⟳</button></h2>
+    <input type="text" id="logFind" placeholder="🔍 Товар / штрихкод / поле" oninput="renderLog()">
+    <div id="logList" class="empty">Загрузка…</div>
+  </div>
+</div>
+
+<!-- КАМЕРА -->
+<div class="modal" id="camModal">
+  <div class="sheet">
+    <h3 id="camTitle" style="font-size:16px;margin-bottom:10px">Наведите камеру</h3>
+    <div id="reader"></div>
+    <div class="row2" style="margin-top:10px">
+      <button class="btn btn-gray" id="torchBtn" style="margin-bottom:0" onclick="toggleTorch()">🔦 Фонарик</button>
+      <button class="btn btn-gray" style="margin-bottom:0" onclick="closeCamera()">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============== НАСТРОЙКИ (общий ключ с приложением) ============== */
+const LS_SET='sborka_settings';
+let S={ghRepo:'',ghBranch:'main',ghToken:''};
+try{ const x=localStorage.getItem(LS_SET); if(x) S=Object.assign(S,JSON.parse(x)); }catch(e){}
+document.getElementById('sRepo').value=S.ghRepo||'';
+document.getElementById('sBranch').value=S.ghBranch||'main';
+document.getElementById('sToken').value=S.ghToken||'';
+function saveSet(){
+  const all=(()=>{try{return JSON.parse(localStorage.getItem(LS_SET))||{}}catch(e){return{}}})();
+  S.ghRepo=document.getElementById('sRepo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/+$/,'');
+  S.ghBranch=document.getElementById('sBranch').value.trim()||'main';
+  S.ghToken=document.getElementById('sToken').value.trim();
+  localStorage.setItem(LS_SET,JSON.stringify(Object.assign(all,{ghRepo:S.ghRepo,ghBranch:S.ghBranch,ghToken:S.ghToken})));
+  toast('Сохранено','ok');
+}
+function ready(warn){
+  if(S.ghRepo&&S.ghToken) return true;
+  if(warn) toast('Укажите репозиторий и токен в настройках','err');
+  return false;
+}
+
+/* ============== UI ============== */
+let toastTimer=null;
+function toast(m,t){
+  const el=document.getElementById('toast');
+  el.textContent=m; el.className=t; el.style.display='block';
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.style.display='none',t==='err'?3000:1700);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function beep(ok){
+  if(navigator.vibrate) navigator.vibrate(ok?60:[120,60,120]);
+  try{
+    const ctx=beep.ctx=beep.ctx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.frequency.value=ok?1568:220;o.type='square';g.gain.value=.12;
+    o.start();o.stop(ctx.currentTime+(ok?.12:.4));
+  }catch(e){}
+}
+function show(s){
+  ['Home','Section','Fill','Log','Upd'].forEach(k=>document.getElementById('scr'+k).classList.toggle('active',s===k));
+  document.getElementById('btnBack').style.display=s==='Home'?'none':'inline-block';
+}
+function goHome(){
+  if(pending.length&&!confirm('Есть несохранённые позиции ('+pending.length+'). Выйти без сохранения?')) return;
+  if((updNew.length||updFill.length)&&document.getElementById('scrUpd').classList.contains('active')
+     &&!confirm('Сверка не применена. Выйти без применения?')) return;
+  pending=[]; updNew=[]; updFill=[]; show('Home');
+}
+
+/* ============== GITHUB API ============== */
+function BR(){ return encodeURIComponent(S.ghBranch||'main'); }
+function HDR(extra){ return Object.assign({'Authorization':'Bearer '+S.ghToken,'Accept':'application/vnd.github+json'},extra||{}); }
+function API(path){ return 'https://api.github.com/repos/'+S.ghRepo+'/contents/'+path; }
+function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
+async function ghRaw(path){
+  const r=await fetch(API(path)+'?ref='+BR(),{cache:'no-store',headers:HDR({'Accept':'application/vnd.github.raw+json'})});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.text();
+}
+async function ghPut(path,contentStr,message){
+  for(let a=0;a<3;a++){
+    let sha=null;
+    const g=await fetch(API(path)+'?ref='+BR(),{cache:'no-store',headers:HDR()});
+    if(g.ok) sha=(await g.json()).sha;
+    else if(g.status!==404) throw new Error('HTTP '+g.status);
+    const body={message,branch:S.ghBranch||'main',content:b64enc(contentStr)};
+    if(sha) body.sha=sha;
+    const r=await fetch(API(path),{method:'PUT',headers:HDR(),body:JSON.stringify(body)});
+    if(r.ok) return;
+    if(r.status!==409&&r.status!==422) throw new Error('HTTP '+r.status+(r.status===401||r.status===403?' — проверьте токен':''));
+  }
+  throw new Error('Файл меняется одновременно с другого устройства — повторите');
+}
+
+/* ============== КАТАЛОГ ============== */
+let catalog=null;
+function bcKey(b){ return String(b||'').replace(/^0+/,''); }
+function nrm(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+async function loadCatalog(){
+  if(!ready(true)) return false;
+  try{
+    const d=JSON.parse(await ghRaw('catalog.json'));
+    if(!Array.isArray(d)) throw new Error('catalog.json повреждён');
+    catalog=d;
+    document.getElementById('catInfo').textContent='Каталог загружен: '+catalog.length+' позиций.';
+    return true;
+  }catch(e){ toast('Каталог: '+e.message,'err'); return false; }
+}
+
+/* ============== ПАРСИНГ КОДОВ ============== */
+const GS='\u001d';
+function parseCode(raw){
+  let s=String(raw).trim();
+  if(s.startsWith(']d2')||s.startsWith(']Q3')||s.startsWith(']C1')) s=s.slice(3);
+  s=s.replace(/^[\u001d\u00e8]+/,'');
+  if(/^01\d{14}21/.test(s)) return {type:'km',barcode:s.slice(2,16)}; // код ЧЗ → GTIN + признак маркировки
+  const digits=s.replace(/\D/g,'');
+  if(digits.length>=8&&digits.length<=14&&digits===s) return {type:'ean',barcode:digits};
+  return {type:'text',raw:s};
+}
+
+/* ============== РАЗМЕТКА СКЛАДА ============== */
+let section='',pending=[],markWh='Основной'; // склад, который размечаем
+function locField(){ return markWh==='ЧАЙ'?'locTea':'loc'; }
+function setMarkWh(w){
+  markWh=w;
+  const st=(b,on)=>{ b.style.background=on?'var(--violet)':'#e5e7eb'; b.style.color=on?'#fff':'var(--text)'; };
+  st(document.getElementById('whMain'),w==='Основной');
+  st(document.getElementById('whTea'),w==='ЧАЙ');
+}
+async function startMarkup(){
+  if(!ready(true)) return;
+  if(!catalog){ toast('Загружаю каталог…','warn'); if(!await loadCatalog()) return; }
+  document.getElementById('secInput').value='';
+  setMarkWh(markWh);
+  show('Section');
+}
+function setSection(v){
+  v=String(v||'').trim().toUpperCase().slice(0,16);
+  if(!v){ toast('Секция пустая','err'); return; }
+  section=v; pending=[];
+  document.getElementById('secLabel').textContent=markWh+' · '+section;
+  document.getElementById('findInput').value='';
+  renderFill(); renderFind();
+  show('Fill');
+  toast('Секция '+section+' — сканируйте товары','ok');
+}
+function beginFill(){ setSection(document.getElementById('secInput').value); }
+function switchSection(){
+  if(pending.length&&!confirm('Есть несохранённые позиции ('+pending.length+'). Сменить секцию без сохранения?')) return;
+  pending=[]; show('Section');
+}
+function addItem(c,isKm){
+  const ex=pending.find(p=>p.ref===c);
+  if(ex){
+    if(isKm&&!ex.setMark){ ex.setMark=true; renderFill(); toast('✓ '+c.name+' — отмечен как ЧЗ','ok'); beep(true); return; }
+    toast('Уже в списке','warn'); return;
+  }
+  pending.push({ref:c,name:c.name,barcode:c.barcode||'',sku:c.sku||'',prev:c[locField()]||'',setMark:!!isKm});
+  renderFill(); beep(true);
+  toast('✓ '+c.name+(isKm&&!c.mark?' — будет помечен как ЧЗ':''),'ok');
+}
+function delItem(i){ pending.splice(i,1); renderFill(); }
+function renderFill(){
+  document.getElementById('fillCnt').textContent=pending.length;
+  const el=document.getElementById('fillList');
+  if(!pending.length){ el.className='empty'; el.textContent='Пока пусто — сканируйте первый товар'; return; }
+  el.className='';
+  el.innerHTML=pending.map((p,i)=>
+    `<div class="itm"><div class="info"><div class="n">${esc(p.name)}${(p.setMark||p.ref.mark)?' <span class="was" style="background:var(--green-bg);color:var(--green)">ЧЗ</span>':''}</div>
+     <div class="b">${p.barcode?'ШК: '+esc(p.barcode):'— без ШК —'}${p.sku?' · '+esc(p.sku):''}
+     ${p.prev&&p.prev!==section?' <span class="was">была: '+esc(p.prev)+'</span>':''}</div></div>
+     <button class="del" onclick="delItem(${i})">✕</button></div>`).join('');
+}
+function renderFind(){
+  const q=nrm(document.getElementById('findInput').value);
+  const el=document.getElementById('findList');
+  if(!q||q.length<2||!catalog){ el.innerHTML=''; return; }
+  const list=catalog.filter(c=>nrm(c.name).includes(q)||String(c.barcode).includes(q)||nrm(c.sku).includes(q)).slice(0,30);
+  el.innerHTML=list.map((c,i)=>
+    `<div class="itm"><div class="info"><div class="n">${esc(c.name)}</div>
+     <div class="b">${c.barcode?'ШК: '+esc(c.barcode):'— без ШК —'}${c.sku?' · '+esc(c.sku):''}${c.loc?' · 🗄Осн:'+esc(c.loc):''}${c.locTea?' · 🗄Чай:'+esc(c.locTea):''}</div></div>
+     <button class="add" onclick="findAdd(${catalog.indexOf(c)})">＋</button></div>`).join('')||'<div class="empty">Не найдено</div>';
+}
+function findAdd(idx){ const c=catalog[idx]; if(c) addItem(c); }
+function processScan(raw){
+  if(!raw||!raw.trim()) return;
+  const p=parseCode(raw);
+  if(camMode==='section'||document.getElementById('scrSection').classList.contains('active')){
+    // на экране выбора секции любой скан — это её номер
+    closeCamera();
+    setSection(p.type==='text'?p.raw:p.barcode);
+    return;
+  }
+  if(p.type!=='ean'&&p.type!=='km'){ toast('Код не распознан','err'); beep(false); return; }
+  const c=catalog&&catalog.find(x=>x.barcode&&bcKey(x.barcode)===bcKey(p.barcode));
+  if(!c){ toast('Штрихкод '+p.barcode+' не найден в каталоге','err'); beep(false); return; }
+  addItem(c,p.type==='km'); // скан кода ЧЗ = секция + пометка «Честный знак»
+}
+async function saveSection(){
+  if(!pending.length){ toast('Список пуст — нечего сохранять','warn'); return; }
+  if(!ready(true)) return;
+  toast('Сохраняю…','warn');
+  try{
+    // читаем свежий каталог, проставляем секцию, пишем обратно
+    const arr=JSON.parse(await ghRaw('catalog.json'));
+    if(!Array.isArray(arr)) throw new Error('catalog.json повреждён');
+    const byBc=new Map(),byName=new Map();
+    arr.forEach(c=>{ if(c.barcode) byBc.set(bcKey(c.barcode),c); byName.set(nrm(c.name),c); });
+    let n=0,marked=0;
+    const logs=[],now=Date.now(),fld=locField(),fldName='секция ('+markWh+')';
+    pending.forEach(p=>{
+      const c=(p.barcode&&byBc.get(bcKey(p.barcode)))||byName.get(nrm(p.name));
+      if(!c) return;
+      if((c[fld]||'')!==section) logs.push({ts:now,by:'разметка',name:c.name,barcode:c.barcode||'',field:fldName,old:c[fld]||'(пусто)',new:section});
+      c[fld]=section; n++;
+      if(p.setMark&&!c.mark){ c.mark=true; marked++; logs.push({ts:now,by:'разметка',name:c.name,barcode:c.barcode||'',field:'ЧЗ',old:'нет',new:'да'}); }
+    });
+    await ghPut('catalog.json',JSON.stringify(arr),'Разметка: '+markWh+' / '+section+' ('+pending.length+' поз.'+(marked?', ЧЗ +'+marked:'')+')');
+    catLog(logs);
+    catalog=arr;
+    toast('✓ Секция '+section+' сохранена: '+n+' поз.'+(marked?', помечено ЧЗ: '+marked:''),'ok'); beep(true);
+    pending=[]; renderFill();
+    show('Section'); // следующая секция
+  }catch(e){ toast('Ошибка сохранения: '+e.message,'err'); beep(false); }
+}
+
+/* ============== ОБНОВЛЕНИЕ КАТАЛОГА (сверка с предпросмотром) ============== */
+const COLS={
+  name:['номенклатура','наименование','товар','продукция','name'],
+  barcode:['штрихкод','штрих-код','шк','barcode','ean'],
+  sku:['артикул','код','sku','art'],
+  grp:['группа','категория','родитель','group'],
+  mark:['маркировка','честный знак','км','mark']
+};
+function findCol(headers,keys){
+  for(let i=0;i<headers.length;i++){ const h=nrm(headers[i]); if(keys.some(k=>h===k||h.includes(k))) return i; }
+  return -1;
+}
+function parseCsv(text){
+  const delim=(text.split(';').length>=text.split(',').length)?';':',';
+  return text.split(/\r?\n/).filter(l=>l.trim()).map(line=>{
+    const out=[]; let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(inQ){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else inQ=false; } else cur+=c; }
+      else{ if(c==='"')inQ=true; else if(c===delim){out.push(cur);cur='';} else cur+=c; }
+    }
+    out.push(cur); return out;
+  });
+}
+function parseCatRows(rows){
+  let hIdx=-1,ci={};
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const nm=findCol(rows[i],COLS.name);
+    if(nm>=0){ hIdx=i; ci={name:nm,barcode:findCol(rows[i],COLS.barcode),sku:findCol(rows[i],COLS.sku),grp:findCol(rows[i],COLS.grp),mark:findCol(rows[i],COLS.mark)}; break; }
+  }
+  if(hIdx<0) return null;
+  const lines=[];
+  for(let i=hIdx+1;i<rows.length;i++){
+    const r=rows[i];
+    const name=String(r[ci.name]||'').trim();
+    if(!name) continue;
+    const markV=ci.mark>=0?nrm(r[ci.mark]):'';
+    lines.push({name,
+      barcode:ci.barcode>=0?String(r[ci.barcode]||'').replace(/\D/g,''):'',
+      sku:ci.sku>=0?String(r[ci.sku]||'').trim():'',
+      grp:ci.grp>=0?String(r[ci.grp]||'').trim():'',
+      mark:['да','истина','1','true','+'].includes(markV)});
+  }
+  return lines;
+}
+let updNew=[],updFill=[],updSame=0,ueIdx=-1;
+async function startUpdate(){
+  if(!ready(true)) return;
+  if(!catalog){ toast('Загружаю каталог…','warn'); if(!await loadCatalog()) return; }
+  updNew=[]; updFill=[]; updSame=0;
+  renderUpd();
+  document.getElementById('updInfo').textContent='Файл сверится с каталогом на сервере ('+catalog.length+' поз.). Заполненные поля существующих позиций не трогаются.';
+  show('Upd');
+}
+function handleUpdFile(file){
+  if(!file) return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      let rows;
+      if(ext==='csv'||ext==='txt'){
+        rows=parseCsv(new TextDecoder('utf-8').decode(new Uint8Array(e.target.result)));
+        if(rows.length&&JSON.stringify(rows[0]).includes('�'))
+          rows=parseCsv(new TextDecoder('windows-1251').decode(new Uint8Array(e.target.result)));
+      }else{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+      }
+      const lines=parseCatRows(rows);
+      if(!lines){ toast('Не найдена колонка «Номенклатура»','err'); return; }
+      compareUpd(lines);
+    }catch(err){ toast('Ошибка чтения файла: '+err.message,'err'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function compareUpd(lines){
+  const byBc=new Map(),byName=new Map();
+  catalog.forEach(c=>{ if(c.barcode) byBc.set(bcKey(c.barcode),c); byName.set(nrm(c.name),c); });
+  updNew=[]; updFill=[]; updSame=0;
+  const seen=new Set();
+  lines.forEach(l=>{
+    const key=l.barcode?'b'+bcKey(l.barcode):'n'+nrm(l.name);
+    if(seen.has(key)) return; seen.add(key);
+    let ex=(l.barcode&&byBc.get(bcKey(l.barcode)))||byName.get(nrm(l.name));
+    if(!ex&&l.barcode){ const exN=byName.get(nrm(l.name)); if(exN&&!exN.barcode) ex=exN; }
+    if(ex){
+      let any=false;
+      const label=ex.name;
+      if(l.barcode&&!ex.barcode){ updFill.push({exName:label,field:'barcode',fieldName:'штрихкод',value:l.barcode,skip:false}); any=true; }
+      if(l.sku&&!ex.sku){ updFill.push({exName:label,field:'sku',fieldName:'артикул',value:l.sku,skip:false}); any=true; }
+      if(l.grp&&!ex.grp){ updFill.push({exName:label,field:'grp',fieldName:'группа',value:l.grp,skip:false}); any=true; }
+      if(l.mark&&!ex.mark){ updFill.push({exName:label,field:'mark',fieldName:'ЧЗ',value:'да',skip:false}); any=true; }
+      if(!any) updSame++;
+    } else updNew.push({name:l.name,barcode:l.barcode,sku:l.sku,grp:l.grp,mark:l.mark,skip:false});
+  });
+  renderUpd();
+  document.getElementById('updInfo').textContent='Сверка: новых '+updNew.length+', дозаполнений '+updFill.length+', без изменений '+updSame+'.';
+  toast('Сверка готова','ok');
+}
+function renderUpd(){
+  const nc=document.getElementById('updNewCard'),fc=document.getElementById('updFillCard'),ac=document.getElementById('updApplyCard');
+  document.getElementById('updNewCnt').textContent=updNew.filter(x=>!x.skip).length+' из '+updNew.length;
+  document.getElementById('updFillCnt').textContent=updFill.filter(x=>!x.skip).length+' из '+updFill.length;
+  nc.style.display=updNew.length?'block':'none';
+  fc.style.display=updFill.length?'block':'none';
+  ac.style.display=(updNew.length||updFill.length)?'block':'none';
+  document.getElementById('updNewList').innerHTML=updNew.slice(0,300).map((x,i)=>
+    `<div class="itm" style="${x.skip?'opacity:.4':''}"><div class="info">
+      <div class="n">${esc(x.name)}${x.mark?' <span class="was" style="background:var(--green-bg);color:var(--green)">ЧЗ</span>':''}</div>
+      <div class="b">${x.barcode?'ШК: '+esc(x.barcode):'— без ШК —'}${x.sku?' · '+esc(x.sku):''}${x.grp?' · '+esc(x.grp):''}</div></div>
+      <button class="add" style="background:#e5e7eb;color:var(--text)" onclick="ueOpen(${i})">✎</button>
+      <button class="del" onclick="updNew[${i}].skip=!updNew[${i}].skip;renderUpd()">${x.skip?'↩':'✕'}</button></div>`).join('')
+    +(updNew.length>300?'<p class="hint">Показаны первые 300</p>':'');
+  document.getElementById('updFillList').innerHTML=updFill.slice(0,300).map((x,i)=>
+    `<div class="itm" style="${x.skip?'opacity:.4':''}"><div class="info">
+      <div class="n">${esc(x.exName)}</div>
+      <div class="b"><b>${esc(x.fieldName)}</b>: (пусто) → <b style="color:var(--green)">${esc(x.value)}</b></div></div>
+      ${x.field!=='mark'?`<button class="add" style="background:#e5e7eb;color:var(--text)" onclick="editFill(${i})">✎</button>`:''}
+      <button class="del" onclick="updFill[${i}].skip=!updFill[${i}].skip;renderUpd()">${x.skip?'↩':'✕'}</button></div>`).join('')
+    +(updFill.length>300?'<p class="hint">Показаны первые 300</p>':'');
+}
+function ueOpen(i){
+  ueIdx=i; const x=updNew[i];
+  document.getElementById('ueName').value=x.name;
+  document.getElementById('ueBarcode').value=x.barcode;
+  document.getElementById('ueSku').value=x.sku;
+  document.getElementById('ueGrp').value=x.grp;
+  document.getElementById('ueMark').checked=!!x.mark;
+  document.getElementById('ueModal').classList.add('open');
+}
+function closeUe(){ document.getElementById('ueModal').classList.remove('open'); ueIdx=-1; }
+function ueSave(){
+  if(ueIdx<0) return;
+  const x=updNew[ueIdx];
+  x.name=document.getElementById('ueName').value.trim()||x.name;
+  x.barcode=document.getElementById('ueBarcode').value.replace(/\D/g,'');
+  x.sku=document.getElementById('ueSku').value.trim();
+  x.grp=document.getElementById('ueGrp').value.trim();
+  x.mark=document.getElementById('ueMark').checked;
+  closeUe(); renderUpd();
+}
+function editFill(i){
+  const x=updFill[i];
+  const v=prompt('Значение поля «'+x.fieldName+'» для:\n'+x.exName,x.value);
+  if(v===null) return;
+  x.value=x.field==='barcode'?v.replace(/\D/g,''):v.trim();
+  if(!x.value) x.skip=true;
+  renderUpd();
+}
+async function applyUpdate(){
+  const news=updNew.filter(x=>!x.skip), fills=updFill.filter(x=>!x.skip);
+  if(!news.length&&!fills.length){ toast('Нечего применять','warn'); return; }
+  if(!confirm('Применить: '+news.length+' новых, '+fills.length+' дозаполнений?')) return;
+  document.getElementById('updApplyBtn').disabled=true;
+  try{
+    const arr=JSON.parse(await ghRaw('catalog.json'));
+    if(!Array.isArray(arr)) throw new Error('catalog.json повреждён');
+    const byBc=new Map(),byName=new Map();
+    arr.forEach(c=>{ if(c.barcode) byBc.set(bcKey(c.barcode),c); byName.set(nrm(c.name),c); });
+    const logs=[],now=Date.now();
+    let added=0,filled=0,skipped=0;
+    news.forEach(x=>{
+      if((x.barcode&&byBc.get(bcKey(x.barcode)))||byName.get(nrm(x.name))){ skipped++; return; } // появился, пока сверяли
+      const o={name:x.name,barcode:x.barcode,sku:x.sku,mark:!!x.mark,grp:x.grp};
+      arr.push(o);
+      if(o.barcode) byBc.set(bcKey(o.barcode),o);
+      byName.set(nrm(o.name),o);
+      added++;
+      logs.push({ts:now,by:'обновление каталога',name:o.name,barcode:o.barcode,field:'создан',old:'',new:''});
+    });
+    fills.forEach(x=>{
+      const ex=byName.get(nrm(x.exName));
+      if(!ex){ skipped++; return; }
+      if(x.field==='mark'){ if(!ex.mark){ ex.mark=true; filled++; logs.push({ts:now,by:'обновление каталога',name:ex.name,barcode:ex.barcode||'',field:'ЧЗ',old:'нет',new:'да'}); } return; }
+      if(ex[x.field]){ skipped++; return; } // поле уже заполнили, пока сверяли
+      ex[x.field]=x.value; filled++;
+      logs.push({ts:now,by:'обновление каталога',name:ex.name,barcode:ex.barcode||'',field:x.fieldName,old:'(пусто)',new:x.value});
+    });
+    await ghPut('catalog.json',JSON.stringify(arr),'Обновление каталога: +'+added+', дозаполнено '+filled);
+    catLog(logs);
+    catalog=arr;
+    updNew=[]; updFill=[]; updSame=0;
+    renderUpd();
+    document.getElementById('updInfo').textContent='✓ Применено: добавлено '+added+', дозаполнено '+filled+(skipped?', пропущено (изменилось параллельно): '+skipped:'')+'. Всего в каталоге: '+arr.length+'.';
+    toast('✓ Каталог обновлён: +'+added+' новых, дозаполнено '+filled,'ok'); beep(true);
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+  document.getElementById('updApplyBtn').disabled=false;
+}
+
+/* ============== ЖУРНАЛ ИЗМЕНЕНИЙ КАРТОЧЕК ============== */
+let logArr=[];
+async function catLog(entries){
+  if(!entries||!entries.length) return;
+  try{
+    let arr=[];
+    try{ const d=JSON.parse(await ghRaw('catalog-log.json')); if(Array.isArray(d)) arr=d; }catch(e){}
+    arr=arr.concat(entries).slice(-1000);
+    await ghPut('catalog-log.json',JSON.stringify(arr),'Журнал карточек (+'+entries.length+')');
+  }catch(e){}
+}
+function openLog(){ if(!ready(true)) return; show('Log'); loadLog(); }
+async function loadLog(){
+  try{
+    logArr=[];
+    try{ const d=JSON.parse(await ghRaw('catalog-log.json')); if(Array.isArray(d)) logArr=d; }catch(e){}
+    renderLog();
+  }catch(e){ toast('Ошибка: '+e.message,'err'); }
+}
+function renderLog(){
+  const q=nrm(document.getElementById('logFind').value);
+  const el=document.getElementById('logList');
+  const list=logArr.slice().reverse().filter(e=>!q||nrm(e.name).includes(q)||String(e.barcode||'').includes(q)||nrm(e.field).includes(q)).slice(0,200);
+  if(!list.length){ el.className='empty'; el.textContent=logArr.length?'Не найдено':'Журнал пуст — записи появляются при правках карточек в кабинете, загрузке файлов и разметке склада'; return; }
+  el.className='';
+  el.innerHTML=list.map(e=>
+    `<div class="itm"><div class="info"><div class="n">${esc(e.name||'')}</div>
+     <div class="b">${new Date(+e.ts||0).toLocaleString('ru')} · ${esc(e.by||'')}${e.barcode?' · ШК '+esc(e.barcode):''}</div>
+     <div class="b"><b>${esc(e.field||'')}</b>${(e.old||e.new)?': <s style="color:var(--red)">'+esc(e.old||'—')+'</s> → <b style="color:var(--green)">'+esc(e.new||'—')+'</b>':''}</div></div></div>`).join('');
+}
+
+/* ============== ВВОД: ПОЛЕ + HID-СКАНЕР ============== */
+const scanInput=document.getElementById('scanInput');
+scanInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ e.preventDefault(); processScan(scanInput.value); scanInput.value=''; }
+});
+let hidBuf='',hidTime=0;
+document.addEventListener('keydown',e=>{
+  const tag=(document.activeElement&&document.activeElement.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA') return;
+  const now=Date.now();
+  if(now-hidTime>200) hidBuf='';
+  hidTime=now;
+  if(e.key==='Enter'){ if(hidBuf.length>=2){ processScan(hidBuf); } hidBuf=''; return; }
+  if(e.ctrlKey&&(e.key===']'||e.code==='BracketRight')){ hidBuf+=GS; e.preventDefault(); return; }
+  if(e.key.length===1) hidBuf+=e.key;
+});
+
+/* ============== КАМЕРА ============== */
+let html5Qr=null,camMode='';
+function openCamera(mode){
+  camMode=mode||'fill';
+  document.getElementById('camTitle').textContent=camMode==='section'?'Наведите камеру на QR секции':'Сканируйте товары секции '+section;
+  document.getElementById('camModal').classList.add('open');
+  const fmts=camMode==='section'
+    ?[Html5QrcodeSupportedFormats.QR_CODE,Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.DATA_MATRIX]
+    :[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.DATA_MATRIX,Html5QrcodeSupportedFormats.QR_CODE];
+  html5Qr=new Html5Qrcode('reader',{formatsToSupport:fmts});
+  let lastText='',lastTs=0;
+  html5Qr.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:260}},
+    (text)=>{
+      const now=Date.now();
+      if(text===lastText&&now-lastTs<2500) return;
+      lastText=text; lastTs=now;
+      processScan(text);
+    },()=>{}
+  ).catch(err=>{ toast('Камера недоступна: '+err+'. Нужен HTTPS.','err'); closeCamera(); });
+}
+let torchOn=false;
+function toggleTorch(){
+  if(!html5Qr) return;
+  torchOn=!torchOn;
+  html5Qr.applyVideoConstraints({advanced:[{torch:torchOn}]})
+    .then(()=>{ const b=document.getElementById('torchBtn'); b.style.background=torchOn?'var(--amber-bg)':'#e5e7eb'; b.style.color=torchOn?'var(--amber)':'var(--text)'; })
+    .catch(()=>{ torchOn=false; toast('Фонарик недоступен на этом устройстве','warn'); });
+}
+function closeCamera(){
+  torchOn=false;
+  const b=document.getElementById('torchBtn'); b.style.background='#e5e7eb'; b.style.color='var(--text)';
+  document.getElementById('camModal').classList.remove('open');
+  camMode='';
+  if(html5Qr){ html5Qr.stop().then(()=>html5Qr.clear()).catch(()=>{}); html5Qr=null; }
+}
+</script>
+</body>
+</html>
